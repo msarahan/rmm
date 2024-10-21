@@ -223,7 +223,6 @@ jobs:
       # Main purpose of this traceparent line here is to ensure that otel-cli is installed.
       - name: Get job traceparent
         uses: rapidsai/shared-actions/telemetry-traceparent@add-telemetry
-        id: job-traceparent
       - name: Write certificate files for mTLS
         run: |
           mkdir -p /tmp/certs
@@ -240,6 +239,9 @@ jobs:
         if: always()
         uses: rapidsai/shared-actions/telemetry-create-span@add-telemetry
         with:
+            service: ${{needs.telemetry-setup.outputs.top_level_service_name}}
+            name: "end-of-job update"
+            default_endpoint: "${{needs.telemetry-setup.outputs.endpoint}}"
             traceparent: ${{needs.telemetry-setup.outputs.traceparent}}
             start_time: ${{needs.telemetry-setup.outputs.start_time}}
             end_time: ${{steps.timestamp.outputs.FINAL_TIME}}
