@@ -220,6 +220,10 @@ jobs:
         id: timestamp
         run:
             echo "FINAL_TIME=$(date +%s.%N)" >> ${GITHUB_OUTPUT}
+      # Main purpose of this traceparent line here is to ensure that otel-cli is installed.
+      - name: Get job traceparent
+        uses: rapidsai/shared-actions/telemetry-traceparent@add-telemetry
+        id: job-traceparent
       - name: Write certificate files for mTLS
         run: |
           mkdir -p /tmp/certs
