@@ -23,6 +23,16 @@ def test_build_docs_runs_sphinx_api_generator():
     assert "run_fern check --warnings" in text
 
 
+def test_ci_docs_env_uses_current_build_artifacts():
+    script = REPO_ROOT / "ci" / "build_docs.sh"
+    text = script.read_text(encoding="utf-8")
+
+    assert "rapids-download-conda-from-github cpp" in text
+    assert 'rapids-package-name "conda_python" rmm' in text
+    assert '--prepend-channel "${CPP_CHANNEL}"' in text
+    assert '--prepend-channel "${PYTHON_CHANNEL}"' in text
+
+
 def test_fern_docs_do_not_link_to_legacy_api_reference():
     docs_yml = FERN_ROOT / "docs.yml"
     page_text = "\n".join(

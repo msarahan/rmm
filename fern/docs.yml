@@ -2,7 +2,7 @@
 
 title: "RMM"
 instances:
-  - url: "nvidia-rmm.docs.buildwithfern.com/rmm"
+  - url: "https://nvidia-rmm.docs.buildwithfern.com/rmm"
     custom-domain: docs.nvidia.com/rmm
 colors:
   accentPrimary:

@@ -6,7 +6,9 @@
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -23,10 +25,13 @@ DOXYGEN_DIR = REPO_ROOT / "cpp" / "doxygen"
 DOXYGEN_XML_INDEX = DOXYGEN_DIR / "xml" / "index.xml"
 
 GENERATED_NOTICE = (
-    "<!-- Generated from the Sphinx API extraction build. "
-    "Do not edit directly. -->\n\n"
+    "{/* Generated from the Sphinx API extraction build. "
+    "Do not edit directly. */}\n\n"
 )
 API_SOURCE_DIRS = ("cpp", "python")
+HTML_COMMENT_RE = re.compile(r"<!--\s*(.*?)\s*-->", re.DOTALL)
+HTML_ANCHOR_RE = re.compile(r'^\s*<a\s+(?:id|name)="[^"]+"></a>\s*$')
+FENCE_RE = re.compile(r"^\s*(```|~~~)")
 
 
 def relative_to_repo(path: Path) -> str:
@@ -62,6 +67,70 @@ def run_command(args: list[str], *, cwd: Path, env: dict[str, str]) -> None:
     display = " ".join(args)
     print(f"+ ({relative_to_repo(cwd)}) {display}", file=sys.stderr)
     subprocess.run(args, cwd=cwd, env=env, check=True)
+
+
+def current_git_commit() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def imported_rmm_package(env: dict[str, str]) -> tuple[str, str]:
+    probe = (
+        "import inspect, json, rmm; "
+        "print(json.dumps({"
+        "'commit': rmm.__git_commit__, "
+        "'path': inspect.getfile(rmm)"
+        "}))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise SystemExit(
+            "Unable to import the RMM Python package for API docs. "
+            "Build and install the current RMM package before running "
+            "fern/build_docs.sh.\n"
+            f"{result.stderr.strip()}"
+        )
+
+    data = json.loads(result.stdout)
+    return data["commit"], data["path"]
+
+
+def verify_current_rmm_package(env: dict[str, str]) -> None:
+    git_commit = current_git_commit()
+    package_commit, package_path = imported_rmm_package(env)
+
+    if not package_commit:
+        raise SystemExit(
+            f"The imported rmm package at {package_path} does not record its "
+            "git commit. Build and install the current RMM package before "
+            "generating Fern API docs."
+        )
+
+    if package_commit == git_commit:
+        return
+    if git_commit.startswith(package_commit) or package_commit.startswith(
+        git_commit
+    ):
+        return
+
+    raise SystemExit(
+        f"The imported rmm package at {package_path} was built from "
+        f"{package_commit}, which does not match this checkout ({git_commit}). "
+        "Install the package artifacts built from this commit before "
+        "generating Fern API docs."
+    )
 
 
 def build_doxygen_xml(env: dict[str, str]) -> None:
@@ -100,7 +169,39 @@ def build_sphinx_markdown(env: dict[str, str]) -> None:
 def normalize_markdown(text: str) -> str:
     text = text.replace("\r\n", "\n")
     text = "\n".join(line.rstrip() for line in text.splitlines()).strip()
+    text = sanitize_mdx(text)
     return f"{GENERATED_NOTICE}{text}\n"
+
+
+def sanitize_mdx(text: str) -> str:
+    text = HTML_COMMENT_RE.sub(convert_html_comment_to_mdx, text)
+    text = escape_cpp_operator_empty_brackets(text)
+    return escape_raw_angle_brackets(text)
+
+
+def convert_html_comment_to_mdx(match: re.Match[str]) -> str:
+    return f"{{/* {match.group(1).strip()} */}}"
+
+
+def escape_cpp_operator_empty_brackets(text: str) -> str:
+    return text.replace("operator[](", r"operator\[\](")
+
+
+def escape_raw_angle_brackets(text: str) -> str:
+    lines: list[str] = []
+    in_fence = False
+    for line in text.splitlines():
+        if FENCE_RE.match(line):
+            in_fence = not in_fence
+            lines.append(line)
+            continue
+
+        if in_fence or HTML_ANCHOR_RE.match(line):
+            lines.append(line)
+            continue
+
+        lines.append(line.replace("<", "&lt;").replace(">", "&gt;"))
+    return "\n".join(lines)
 
 
 def copy_generated_markdown_pages(markdown_dir: Path, output_dir: Path) -> int:
@@ -123,6 +224,7 @@ def copy_generated_markdown_pages(markdown_dir: Path, output_dir: Path) -> int:
 
 def main() -> int:
     env = docs_environment()
+    verify_current_rmm_package(env)
     build_doxygen_xml(env)
     build_sphinx_markdown(env)
     copied = copy_generated_markdown_pages(MARKDOWN_BUILD_DIR, API_OUTPUT_DIR)
