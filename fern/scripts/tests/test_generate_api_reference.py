@@ -83,7 +83,12 @@ def test_copy_generated_markdown_pages_preserves_rendered_content(tmp_path):
     assert "resource_ref&lt;cuda::mr::device_accessible&gt;" in cpp_output
     assert "#include &lt;device_buffer.hpp&gt;" in cpp_output
     assert (
-        "`cuda::mr::any_resource<cuda::mr::device_accessible>`" in cpp_output
+        "<code>cuda::mr::any_resource"
+        "&lt;cuda::mr::device_accessible&gt;</code>" in cpp_output
+    )
+    assert (
+        "`cuda::mr::any_resource<cuda::mr::device_accessible>`"
+        not in cpp_output
     )
     assert (
         "`cuda::mr::any_resource&lt;cuda::mr::device_accessible&gt;`"

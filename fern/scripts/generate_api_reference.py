@@ -55,7 +55,7 @@ CPP_SYMBOL_START_RE = re.compile(
 )
 CPP_KEYWORD_START_RE = re.compile(r"(?:auto|return|for|if|while|switch)\b")
 CPP_STATEMENT_TERMINATOR_RE = re.compile(r"[;{]")
-CODE_SPAN_RE = re.compile(r"`+[^`]*`+")
+CODE_SPAN_RE = re.compile(r"(?P<fence>`+)(?P<code>[^`]*?)(?P=fence)")
 
 
 def relative_to_repo(path: Path) -> str:
@@ -420,10 +420,21 @@ def escape_raw_angle_brackets_in_line(line: str) -> str:
             .replace("<", "&lt;")
             .replace(">", "&gt;")
         )
-        escaped.append(match.group(0))
+        escaped.append(format_code_span_for_mdx(match))
         start = match.end()
     escaped.append(line[start:].replace("<", "&lt;").replace(">", "&gt;"))
     return "".join(escaped)
+
+
+def format_code_span_for_mdx(match: re.Match[str]) -> str:
+    code = match.group("code")
+    if "<" not in code and ">" not in code:
+        return match.group(0)
+    return f"<code>{escape_html_text(code)}</code>"
+
+
+def escape_html_text(text: str) -> str:
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def copy_generated_markdown_pages(markdown_dir: Path, output_dir: Path) -> int:
