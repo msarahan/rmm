@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://schema.buildwithfern.dev/docs-yml.json
 
 title: "RMM"
+css: ./styles.css
 instances:
   - url: "https://nvidia-rmm.docs.buildwithfern.com/rmm"
     custom-domain: docs.nvidia.com/rmm

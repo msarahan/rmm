@@ -229,22 +229,22 @@ def test_copy_generated_python_api_pages_indents_member_content(tmp_path):
     output = (output_dir / "python" / "rmm.md").read_text(encoding="utf-8")
     assert (
         "#### prefetch(self, device=None, stream=None)\n\n"
-        "> Prefetch buffer data to the specified device on the specified stream.\n"
-        ">\n"
-        "> Assumes managed memory.\n"
-        ">\n"
-        "> ### Parameters\n"
-        ">\n"
-        "> * **device**\n"
-        ">   : The CUDA device to which to prefetch the memory.\n"
-        ">\n"
-        "> * **stream**\n"
-        ">   : CUDA stream to use for prefetching."
+        '<div className="rmm-api-member-body">\n\n'
+        "Prefetch buffer data to the specified device on the specified stream.\n\n"
+        "Assumes managed memory.\n\n"
+        "### Parameters\n\n"
+        "* **device**\n"
+        "  : The CUDA device to which to prefetch the memory.\n\n"
+        "* **stream**\n"
+        "  : CUDA stream to use for prefetching.\n\n"
+        "</div>"
     ) in output
     assert (
         '<a id="rmm.DeviceBuffer.ptr"></a>\n\n'
         "#### ptr\n\n"
-        "> Gets a pointer to the underlying data."
+        '<div className="rmm-api-member-body">\n\n'
+        "Gets a pointer to the underlying data.\n\n"
+        "</div>"
     ) in output
     assert (
         "#### reserve(self, size_t new_capacity, Stream stream=DEFAULT_STREAM) → void\n\n"
@@ -287,29 +287,29 @@ def test_copy_generated_cpp_api_pages_indents_member_content(tmp_path):
     )
     assert (
         "### class device_buffer\n\n"
-        "> RAII construct for device memory allocation.\n\n"
+        '<div className="rmm-api-member-body">\n\n'
+        "RAII construct for device memory allocation.\n\n"
+        "</div>\n\n"
         "### Public Functions"
     ) in output
     assert (
         "### explicit device_buffer(std::size_t size)\n\n"
-        "> Constructs a new device buffer of `size` uninitialized bytes.\n"
-        ">\n"
-        "> #### NOTE\n"
-        "> The buffer is aligned.\n"
-        ">\n"
-        "> ### Throws\n"
-        ">\n"
-        ">   *  – If allocation fails.\n"
-        ">\n"
-        "> ### Parameters\n"
-        ">\n"
-        ">   * **size** – Size in bytes to allocate."
+        '<div className="rmm-api-member-body">\n\n'
+        "Constructs a new device buffer of `size` uninitialized bytes.\n\n"
+        "#### NOTE\n"
+        "The buffer is aligned.\n\n"
+        "### Throws\n\n"
+        "  *  – If allocation fails.\n\n"
+        "### Parameters\n\n"
+        "  * **size** – Size in bytes to allocate.\n\n"
+        "</div>"
     ) in output
     assert (
         "### inline std::size_t size() const noexcept\n\n"
-        "> ### Returns\n"
-        ">\n"
-        ">   The size in bytes."
+        '<div className="rmm-api-member-body">\n\n'
+        "### Returns\n\n"
+        "  The size in bytes.\n\n"
+        "</div>"
     ) in output
 
 

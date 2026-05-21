@@ -1,0 +1,41 @@
+.rmm-api-member-body {
+  margin: 0.75rem 0 1.75rem 1.25rem;
+  padding-left: 1.25rem;
+  border-left: 4px solid #76b900;
+}
+
+.rmm-api-member-body > :first-child {
+  margin-top: 0;
+}
+
+.rmm-api-member-body > :last-child {
+  margin-bottom: 0;
+}
+
+.rmm-api-member-body h3 {
+  margin: 1.4rem 0 0.6rem;
+  padding: 0.25rem 0.6rem;
+  background: rgba(118, 185, 0, 0.12);
+  font-size: 1rem;
+  font-style: normal;
+  font-weight: 650;
+}
+
+.rmm-api-member-body h4 {
+  margin: 1.4rem 0 0.6rem;
+  font-size: 0.95rem;
+  font-style: normal;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.rmm-api-member-body p,
+.rmm-api-member-body li,
+.rmm-api-member-body dd {
+  font-style: normal;
+}
+
+.rmm-api-member-body ul,
+.rmm-api-member-body ol {
+  margin-top: 0.5rem;
+}

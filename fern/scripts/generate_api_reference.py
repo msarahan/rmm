@@ -549,8 +549,11 @@ def flush_api_member_body(
         return
 
     lines.append("")
-    for line in body:
-        lines.append(">" if not line else f"> {line}")
+    lines.append('<div className="rmm-api-member-body">')
+    lines.append("")
+    lines.extend(body)
+    lines.append("")
+    lines.append("</div>")
     lines.append("")
 
 

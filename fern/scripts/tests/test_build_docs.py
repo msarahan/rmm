@@ -49,3 +49,11 @@ def test_home_page_links_native_api_entry_points():
 
     assert "[C++ API](./api_reference/cpp/index.md)" in home
     assert "[Python API](./api_reference/python/index.md)" in home
+
+
+def test_fern_docs_loads_api_member_styles():
+    docs_yml = (FERN_ROOT / "docs.yml").read_text(encoding="utf-8")
+    styles = (FERN_ROOT / "styles.css").read_text(encoding="utf-8")
+
+    assert "css: ./styles.css" in docs_yml
+    assert ".rmm-api-member-body" in styles
