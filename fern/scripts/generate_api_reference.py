@@ -32,6 +32,19 @@ API_SOURCE_DIRS = ("cpp", "python")
 HTML_COMMENT_RE = re.compile(r"<!--\s*(.*?)\s*-->", re.DOTALL)
 HTML_ANCHOR_RE = re.compile(r'^\s*<a\s+(?:id|name)="[^"]+"></a>\s*$')
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
+SECTION_FIELD_RE = re.compile(
+    r"^\s*\*\s+\*\*(?P<title>[A-Z][^:]+):\*\*(?:\s+(?P<body>.*))?$"
+)
+INDENTED_FIELD_TERM_RE = re.compile(
+    r"^\s{2,}(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))\s*$"
+)
+FIELD_LIST_RE = re.compile(r"^\s*\*\s+\*\*[A-Z][^:]+:\*\*")
+DOCTEST_PROMPT_RE = re.compile(r"\s+(?=(?:>>>|\.\.\.)\s)")
+DOCTEST_OUTPUT_RE = re.compile(
+    r"^(?P<command>(?:>>>|\.\.\.)\s.*?\))\s+"
+    r"(?P<output>(?:array\(|bytearray\(|\{|\[|<[^=>]|"
+    r"True\b|False\b|None\b|[0-9]+|[A-Za-z_][\w.]*Error\b).*)$"
+)
 
 
 def relative_to_repo(path: Path) -> str:
@@ -175,6 +188,8 @@ def normalize_markdown(text: str) -> str:
 
 def sanitize_mdx(text: str) -> str:
     text = HTML_COMMENT_RE.sub(convert_html_comment_to_mdx, text)
+    text = restore_doctest_prompt_newlines(text)
+    text = promote_field_list_sections(text)
     text = escape_cpp_operator_empty_brackets(text)
     return escape_raw_angle_brackets(text)
 
@@ -185,6 +200,61 @@ def convert_html_comment_to_mdx(match: re.Match[str]) -> str:
 
 def escape_cpp_operator_empty_brackets(text: str) -> str:
     return text.replace("operator[](", r"operator\[\](")
+
+
+def restore_doctest_prompt_newlines(text: str) -> str:
+    lines: list[str] = []
+    in_fence = False
+    for line in text.splitlines():
+        if FENCE_RE.match(line):
+            in_fence = not in_fence
+            lines.append(line)
+            continue
+
+        if in_fence:
+            lines.extend(expand_doctest_line(line))
+            continue
+
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def expand_doctest_line(line: str) -> list[str]:
+    indent = line[: len(line) - len(line.lstrip())]
+    parts = DOCTEST_PROMPT_RE.sub("\n", line.lstrip()).splitlines()
+    expanded: list[str] = []
+    for part in parts:
+        match = DOCTEST_OUTPUT_RE.match(part)
+        if match:
+            expanded.append(f"{indent}{match.group('command')}")
+            expanded.append(f"{indent}{match.group('output')}")
+        else:
+            expanded.append(f"{indent}{part}")
+    return expanded
+
+
+def promote_field_list_sections(text: str) -> str:
+    lines: list[str] = []
+    in_field_section = False
+    for line in text.splitlines():
+        match = SECTION_FIELD_RE.match(line)
+        if match:
+            lines.append(f"### {match.group('title')}")
+            lines.append("")
+            if match.group("body"):
+                lines.append(f"* {match.group('body')}")
+            in_field_section = True
+            continue
+
+        if in_field_section:
+            if line.startswith("#") or FIELD_LIST_RE.match(line):
+                in_field_section = False
+            elif INDENTED_FIELD_TERM_RE.match(line):
+                lines.append(f"* {line.strip()}")
+                continue
+
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def escape_raw_angle_brackets(text: str) -> str:

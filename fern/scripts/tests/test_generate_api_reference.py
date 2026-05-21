@@ -93,6 +93,49 @@ def test_copy_generated_markdown_pages_preserves_rendered_content(tmp_path):
     assert "docs.rapids.ai/api/rmm" not in cpp_output + python_output
 
 
+def test_normalize_markdown_preserves_doctest_prompt_lines():
+    generator = load_generator()
+    output = generator.normalize_markdown(
+        "# rmm\n\n"
+        "### Examples\n\n"
+        "```pycon\n"
+        '>>> import rmm >>> db = rmm.DeviceBuffer.to_device(b"abc") '
+        ">>> db.copy_to_host() array([97, 98, 99], dtype=uint8)\n"
+        "```\n"
+    )
+
+    assert (
+        "```pycon\n"
+        ">>> import rmm\n"
+        '>>> db = rmm.DeviceBuffer.to_device(b"abc")\n'
+        ">>> db.copy_to_host()\n"
+        "array([97, 98, 99], dtype=uint8)\n"
+        "```"
+    ) in output
+
+
+def test_normalize_markdown_promotes_field_list_sections():
+    generator = load_generator()
+    output = generator.normalize_markdown(
+        "# rmm\n\n"
+        "### *class* rmm.DeviceBuffer\n\n"
+        "Bases: [`object`](https://docs.python.org/3/library/functions.html#object)\n\n"
+        "* **Attributes:**\n"
+        "  [`nbytes`](#rmm.DeviceBuffer.nbytes)\n"
+        "  : Gets the size of the buffer in bytes.\n\n"
+        "  `ptr`\n"
+        "  : Gets a pointer to the underlying data.\n\n"
+        "* **Parameters:** **log_file_name**\n"
+        "  : Name of the log file.\n"
+    )
+
+    assert "### Attributes\n\n* [`nbytes`](#rmm.DeviceBuffer.nbytes)" in output
+    assert "### Parameters\n\n* **log_file_name**" in output
+    assert "* **Attributes:**" not in output
+    assert "* **Parameters:**" not in output
+    assert "`ptr`\n  : Gets a pointer to the underlying data." in output
+
+
 def test_copy_generated_markdown_pages_is_idempotent(tmp_path):
     generator = load_generator()
     markdown_dir = tmp_path / "sphinx" / "build" / "markdown"
