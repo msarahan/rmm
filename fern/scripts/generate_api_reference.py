@@ -47,12 +47,13 @@ DOCTEST_OUTPUT_RE = re.compile(
     r"True\b|False\b|None\b|[0-9]+|[A-Za-z_][\w.]*Error\b).*)$"
 )
 CPP_COMMENT_START_RE = re.compile(r"\s+(?=//\s)")
-CPP_CODE_START_RE = re.compile(
-    r"(?:"
-    r"\[[^\]\n]+\]\([^)]+\)"
-    r"|[a-z_]\w*(?:::\w+)*(?:<[^>\n]+>)?(?:\s+[\[\w*&]|\s*[({=])"
-    r")"
+CPP_LINK_START_RE = re.compile(r"\[[^\]\n]+\]\([^)]+\)")
+CPP_SYMBOL_START_RE = re.compile(
+    r"(?P<symbol>[A-Za-z_]\w*(?:(?:::\w+)|(?:\.\w+)|(?:<[^>\n]+>))*)"
+    r"(?:\s+[\[\w*&]|\s*[({=])"
 )
+CPP_KEYWORD_START_RE = re.compile(r"(?:auto|return|for|if|while|switch)\b")
+CPP_STATEMENT_TERMINATOR_RE = re.compile(r"[;{]")
 CODE_SPAN_RE = re.compile(r"`+[^`]*`+")
 
 
@@ -277,11 +278,29 @@ def split_cpp_comment_from_code(line: str) -> list[str]:
     if not line.startswith("//"):
         return [line]
 
-    for match in re.finditer(r"\.\s+", line):
+    for match in re.finditer(r"\s+", line):
         code = line[match.end() :]
-        if CPP_CODE_START_RE.match(code):
-            return [line[: match.start() + 1], code]
+        if looks_like_cpp_code_start(code, in_comment=True):
+            return [line[: match.start()].rstrip(), code]
     return [line]
+
+
+def looks_like_cpp_code_start(text: str, *, in_comment: bool) -> bool:
+    if in_comment and not CPP_STATEMENT_TERMINATOR_RE.search(text):
+        return False
+    if CPP_LINK_START_RE.match(text):
+        return True
+    if CPP_KEYWORD_START_RE.match(text):
+        return True
+
+    match = CPP_SYMBOL_START_RE.match(text)
+    if not match:
+        return False
+    if not in_comment:
+        return True
+
+    symbol = match.group("symbol")
+    return any(marker in symbol for marker in ("_", "::", ".", "<"))
 
 
 def split_cpp_statements(line: str) -> list[str]:
@@ -296,7 +315,7 @@ def split_cpp_statements(line: str) -> list[str]:
         elif char == ";" and depth == 0:
             tail = line[index + 1 :]
             code = tail.lstrip()
-            if code and CPP_CODE_START_RE.match(code):
+            if code and looks_like_cpp_code_start(code, in_comment=False):
                 parts.append(line[start : index + 1].rstrip())
                 start = index + 1 + len(tail) - len(code)
 
