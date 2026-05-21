@@ -32,6 +32,7 @@ API_SOURCE_DIRS = ("cpp", "python")
 HTML_COMMENT_RE = re.compile(r"<!--\s*(.*?)\s*-->", re.DOTALL)
 HTML_ANCHOR_RE = re.compile(r'^\s*<a\s+(?:id|name)="[^"]+"></a>\s*$')
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
+MARKDOWN_LINK_RE = re.compile(r"\[([^\]\n]+)\]\([^)]+\)")
 SECTION_FIELD_RE = re.compile(
     r"^\s*\*\s+\*\*(?P<title>[A-Z][^:]+):\*\*(?:\s+(?P<body>.*))?$"
 )
@@ -45,6 +46,14 @@ DOCTEST_OUTPUT_RE = re.compile(
     r"(?P<output>(?:array\(|bytearray\(|\{|\[|<[^=>]|"
     r"True\b|False\b|None\b|[0-9]+|[A-Za-z_][\w.]*Error\b).*)$"
 )
+CPP_COMMENT_START_RE = re.compile(r"\s+(?=//\s)")
+CPP_CODE_START_RE = re.compile(
+    r"(?:"
+    r"\[[^\]\n]+\]\([^)]+\)"
+    r"|[a-z_]\w*(?:::\w+)*(?:<[^>\n]+>)?(?:\s+[\[\w*&]|\s*[({=])"
+    r")"
+)
+CODE_SPAN_RE = re.compile(r"`+[^`]*`+")
 
 
 def relative_to_repo(path: Path) -> str:
@@ -188,7 +197,7 @@ def normalize_markdown(text: str) -> str:
 
 def sanitize_mdx(text: str) -> str:
     text = HTML_COMMENT_RE.sub(convert_html_comment_to_mdx, text)
-    text = restore_doctest_prompt_newlines(text)
+    text = normalize_fenced_blocks(text)
     text = promote_field_list_sections(text)
     text = escape_cpp_operator_empty_brackets(text)
     return escape_raw_angle_brackets(text)
@@ -202,21 +211,35 @@ def escape_cpp_operator_empty_brackets(text: str) -> str:
     return text.replace("operator[](", r"operator\[\](")
 
 
-def restore_doctest_prompt_newlines(text: str) -> str:
+def normalize_fenced_blocks(text: str) -> str:
     lines: list[str] = []
-    in_fence = False
+    fence_language: str | None = None
     for line in text.splitlines():
         if FENCE_RE.match(line):
-            in_fence = not in_fence
+            if fence_language is None:
+                fence_language = fence_info(line)
+            else:
+                fence_language = None
             lines.append(line)
             continue
 
-        if in_fence:
+        if fence_language in {"pycon", "python", "py"}:
             lines.extend(expand_doctest_line(line))
+            continue
+        if fence_language in {"cpp", "c++", "cxx", "cc", "hpp", "h"}:
+            lines.extend(expand_cpp_line(line))
             continue
 
         lines.append(line)
     return "\n".join(lines)
+
+
+def fence_info(line: str) -> str:
+    stripped = line.strip()
+    info = stripped[3:].strip()
+    if not info:
+        return ""
+    return info.split(maxsplit=1)[0].lower()
 
 
 def expand_doctest_line(line: str) -> list[str]:
@@ -231,6 +254,58 @@ def expand_doctest_line(line: str) -> list[str]:
         else:
             expanded.append(f"{indent}{part}")
     return expanded
+
+
+def expand_cpp_line(line: str) -> list[str]:
+    if not line.strip():
+        return [line]
+
+    indent = line[: len(line) - len(line.lstrip())]
+    parts = CPP_COMMENT_START_RE.sub("\n", line.lstrip()).splitlines()
+    expanded: list[str] = []
+    for part in parts:
+        for section in split_cpp_comment_from_code(part):
+            expanded.extend(split_cpp_statements(section))
+
+    return [
+        f"{indent}{strip_markdown_links_from_code(part).rstrip()}"
+        for part in expanded
+    ]
+
+
+def split_cpp_comment_from_code(line: str) -> list[str]:
+    if not line.startswith("//"):
+        return [line]
+
+    for match in re.finditer(r"\.\s+", line):
+        code = line[match.end() :]
+        if CPP_CODE_START_RE.match(code):
+            return [line[: match.start() + 1], code]
+    return [line]
+
+
+def split_cpp_statements(line: str) -> list[str]:
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    for index, char in enumerate(line):
+        if char in "([{":
+            depth += 1
+        elif char in ")]}":
+            depth = max(0, depth - 1)
+        elif char == ";" and depth == 0:
+            tail = line[index + 1 :]
+            code = tail.lstrip()
+            if code and CPP_CODE_START_RE.match(code):
+                parts.append(line[start : index + 1].rstrip())
+                start = index + 1 + len(tail) - len(code)
+
+    parts.append(line[start:].strip())
+    return [part for part in parts if part]
+
+
+def strip_markdown_links_from_code(line: str) -> str:
+    return MARKDOWN_LINK_RE.sub(r"\1", line)
 
 
 def promote_field_list_sections(text: str) -> str:
@@ -270,8 +345,23 @@ def escape_raw_angle_brackets(text: str) -> str:
             lines.append(line)
             continue
 
-        lines.append(line.replace("<", "&lt;").replace(">", "&gt;"))
+        lines.append(escape_raw_angle_brackets_in_line(line))
     return "\n".join(lines)
+
+
+def escape_raw_angle_brackets_in_line(line: str) -> str:
+    escaped: list[str] = []
+    start = 0
+    for match in CODE_SPAN_RE.finditer(line):
+        escaped.append(
+            line[start : match.start()]
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+        escaped.append(match.group(0))
+        start = match.end()
+    escaped.append(line[start:].replace("<", "&lt;").replace(">", "&gt;"))
+    return "".join(escaped)
 
 
 def copy_generated_markdown_pages(markdown_dir: Path, output_dir: Path) -> int:

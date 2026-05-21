@@ -50,6 +50,8 @@ def test_copy_generated_markdown_pages_preserves_rendered_content(tmp_path):
         "<cuda::mr::device_accessible>\n\n"
         " *#include <device_buffer.hpp>*\n\n"
         "RAII construct for device memory allocation.\n\n"
+        "This class uses `cuda::mr::any_resource"
+        "<cuda::mr::device_accessible>`.\n\n"
         "Reference type returned by operator[](size_type)\n\n"
         "This class allocates untyped and uninitialized device memory.\n",
         encoding="utf-8",
@@ -79,6 +81,13 @@ def test_copy_generated_markdown_pages_preserves_rendered_content(tmp_path):
     assert '<a id="resource"></a>' in cpp_output
     assert "resource_ref&lt;cuda::mr::device_accessible&gt;" in cpp_output
     assert "#include &lt;device_buffer.hpp&gt;" in cpp_output
+    assert (
+        "`cuda::mr::any_resource<cuda::mr::device_accessible>`" in cpp_output
+    )
+    assert (
+        "`cuda::mr::any_resource&lt;cuda::mr::device_accessible&gt;`"
+        not in cpp_output
+    )
     assert "operator\\[\\](size_type)" in cpp_output
     assert "[](size_type)" not in cpp_output
     assert (
@@ -112,6 +121,34 @@ def test_normalize_markdown_preserves_doctest_prompt_lines():
         "array([97, 98, 99], dtype=uint8)\n"
         "```"
     ) in output
+
+
+def test_normalize_markdown_repairs_collapsed_cpp_examples():
+    generator = load_generator()
+    output = generator.normalize_markdown(
+        "# Data Containers\n\n"
+        "See [device_buffer](#classrmm_1_1device__buffer) for details.\n\n"
+        "Examples:\n"
+        "```cpp\n"
+        "// Allocates using the default memory // resource and stream. "
+        "[device_buffer](#classrmm_1_1device__buffer) buff(100);  "
+        "// Copies `buff` into a new buffer. cuda_stream_view "
+        "[stream](#classrmm_1_1device__buffer_1stream) = cuda_stream_view{};\n"
+        "```\n"
+    )
+
+    assert "See [device_buffer](#classrmm_1_1device__buffer)" in output
+    assert (
+        "```cpp\n"
+        "// Allocates using the default memory\n"
+        "// resource and stream.\n"
+        "device_buffer buff(100);\n"
+        "// Copies `buff` into a new buffer.\n"
+        "cuda_stream_view stream = cuda_stream_view{};\n"
+        "```"
+    ) in output
+    assert "[device_buffer](#classrmm_1_1device__buffer) buff" not in output
+    assert "[stream](#classrmm_1_1device__buffer_1stream)" not in output
 
 
 def test_normalize_markdown_promotes_field_list_sections():
