@@ -190,10 +190,14 @@ def build_sphinx_markdown(env: dict[str, str]) -> None:
         )
 
 
-def normalize_markdown(text: str) -> str:
+def normalize_markdown(
+    text: str, *, source_dir_name: str | None = None
+) -> str:
     text = text.replace("\r\n", "\n")
     text = "\n".join(line.rstrip() for line in text.splitlines()).strip()
     text = sanitize_mdx(text)
+    if source_dir_name == "python":
+        text = indent_python_member_bodies(text)
     return f"{GENERATED_NOTICE}{text}\n"
 
 
@@ -437,6 +441,58 @@ def escape_html_text(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def indent_python_member_bodies(text: str) -> str:
+    lines: list[str] = []
+    member_body: list[str] | None = None
+
+    for line in text.splitlines():
+        if line.startswith("#### "):
+            flush_python_member_body(lines, member_body)
+            member_body = []
+            lines.append(line)
+            continue
+
+        if member_body is not None and is_python_member_boundary(line):
+            flush_python_member_body(lines, member_body)
+            member_body = None
+            lines.append(line)
+            continue
+
+        if member_body is not None:
+            member_body.append(line)
+        else:
+            lines.append(line)
+
+    flush_python_member_body(lines, member_body)
+    return "\n".join(lines)
+
+
+def is_python_member_boundary(line: str) -> bool:
+    return line.startswith("{/*") or HTML_ANCHOR_RE.match(line) is not None
+
+
+def flush_python_member_body(
+    lines: list[str], member_body: list[str] | None
+) -> None:
+    if member_body is None:
+        return
+
+    body = list(member_body)
+    while body and not body[0].strip():
+        body.pop(0)
+    while body and not body[-1].strip():
+        body.pop()
+
+    if not body:
+        lines.append("")
+        return
+
+    lines.append("")
+    for line in body:
+        lines.append(">" if not line else f"> {line}")
+    lines.append("")
+
+
 def copy_generated_markdown_pages(markdown_dir: Path, output_dir: Path) -> int:
     shutil.rmtree(output_dir, ignore_errors=True)
     copied = 0
@@ -448,7 +504,10 @@ def copy_generated_markdown_pages(markdown_dir: Path, output_dir: Path) -> int:
             target_path = output_dir / source_path.relative_to(markdown_dir)
             target_path.parent.mkdir(parents=True, exist_ok=True)
             target_path.write_text(
-                normalize_markdown(source_path.read_text(encoding="utf-8")),
+                normalize_markdown(
+                    source_path.read_text(encoding="utf-8"),
+                    source_dir_name=source_dir_name,
+                ),
                 encoding="utf-8",
             )
             copied += 1

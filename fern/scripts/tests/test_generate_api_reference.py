@@ -196,6 +196,63 @@ def test_normalize_markdown_promotes_field_list_sections():
     assert "`ptr`\n  : Gets a pointer to the underlying data." in output
 
 
+def test_copy_generated_python_api_pages_indents_member_content(tmp_path):
+    generator = load_generator()
+    markdown_dir = tmp_path / "sphinx" / "build" / "markdown"
+    output_dir = tmp_path / "fern" / "pages" / "api_reference"
+    (markdown_dir / "python").mkdir(parents=True)
+    (markdown_dir / "python" / "rmm.md").write_text(
+        "# rmm\n\n"
+        '<a id="rmm.DeviceBuffer.prefetch"></a>\n\n'
+        "#### prefetch(self, device=None, stream=None)\n\n"
+        "Prefetch buffer data to the specified device on the specified stream.\n\n"
+        "Assumes managed memory.\n\n"
+        "### Parameters\n\n"
+        "* **device**\n"
+        "  : The CUDA device to which to prefetch the memory.\n\n"
+        "* **stream**\n"
+        "  : CUDA stream to use for prefetching.\n\n"
+        "<!-- !! processed by numpydoc !! -->\n\n"
+        '<a id="rmm.DeviceBuffer.ptr"></a>\n\n'
+        "#### ptr\n\n"
+        "Gets a pointer to the underlying data.\n\n"
+        '<a id="rmm.DeviceBuffer.reserve"></a>\n\n'
+        "#### reserve(self, size_t new_capacity, Stream stream=DEFAULT_STREAM) → void\n\n"
+        '<a id="rmm.RMMError"></a>\n\n'
+        "### *exception* rmm.RMMError\n\n"
+        "RMM exception details.\n",
+        encoding="utf-8",
+    )
+
+    generator.copy_generated_markdown_pages(markdown_dir, output_dir)
+
+    output = (output_dir / "python" / "rmm.md").read_text(encoding="utf-8")
+    assert (
+        "#### prefetch(self, device=None, stream=None)\n\n"
+        "> Prefetch buffer data to the specified device on the specified stream.\n"
+        ">\n"
+        "> Assumes managed memory.\n"
+        ">\n"
+        "> ### Parameters\n"
+        ">\n"
+        "> * **device**\n"
+        ">   : The CUDA device to which to prefetch the memory.\n"
+        ">\n"
+        "> * **stream**\n"
+        ">   : CUDA stream to use for prefetching."
+    ) in output
+    assert (
+        '<a id="rmm.DeviceBuffer.ptr"></a>\n\n'
+        "#### ptr\n\n"
+        "> Gets a pointer to the underlying data."
+    ) in output
+    assert (
+        "#### reserve(self, size_t new_capacity, Stream stream=DEFAULT_STREAM) → void\n\n"
+        '<a id="rmm.RMMError"></a>'
+    ) in output
+    assert "### *exception* rmm.RMMError\n\nRMM exception details." in output
+
+
 def test_copy_generated_markdown_pages_is_idempotent(tmp_path):
     generator = load_generator()
     markdown_dir = tmp_path / "sphinx" / "build" / "markdown"
