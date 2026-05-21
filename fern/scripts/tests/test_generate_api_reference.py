@@ -52,6 +52,7 @@ def test_copy_generated_markdown_pages_preserves_rendered_content(tmp_path):
         "RAII construct for device memory allocation.\n\n"
         "This class uses `cuda::mr::any_resource"
         "<cuda::mr::device_accessible>`.\n\n"
+        "Use `[device_buffer](#classrmm_1_1device__buffer)` for storage.\n\n"
         "Reference type returned by operator[](size_type)\n\n"
         "This class allocates untyped and uninitialized device memory.\n",
         encoding="utf-8",
@@ -88,6 +89,8 @@ def test_copy_generated_markdown_pages_preserves_rendered_content(tmp_path):
         "`cuda::mr::any_resource&lt;cuda::mr::device_accessible&gt;`"
         not in cpp_output
     )
+    assert "[`device_buffer`](#classrmm_1_1device__buffer)" in cpp_output
+    assert "`[device_buffer](#classrmm_1_1device__buffer)`" not in cpp_output
     assert "operator\\[\\](size_type)" in cpp_output
     assert "[](size_type)" not in cpp_output
     assert (

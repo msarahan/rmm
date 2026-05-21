@@ -33,6 +33,7 @@ HTML_COMMENT_RE = re.compile(r"<!--\s*(.*?)\s*-->", re.DOTALL)
 HTML_ANCHOR_RE = re.compile(r'^\s*<a\s+(?:id|name)="[^"]+"></a>\s*$')
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
 MARKDOWN_LINK_RE = re.compile(r"\[([^\]\n]+)\]\([^)]+\)")
+CODE_SPAN_LINK_RE = re.compile(r"`\[([^\]\n]+)\]\(([^)\n]+)\)`")
 SECTION_FIELD_RE = re.compile(
     r"^\s*\*\s+\*\*(?P<title>[A-Z][^:]+):\*\*(?:\s+(?P<body>.*))?$"
 )
@@ -199,6 +200,7 @@ def normalize_markdown(text: str) -> str:
 def sanitize_mdx(text: str) -> str:
     text = HTML_COMMENT_RE.sub(convert_html_comment_to_mdx, text)
     text = normalize_fenced_blocks(text)
+    text = promote_markdown_links_inside_code_spans(text)
     text = promote_field_list_sections(text)
     text = escape_cpp_operator_empty_brackets(text)
     return escape_raw_angle_brackets(text)
@@ -350,6 +352,22 @@ def split_cpp_statements(line: str) -> list[str]:
 
 def strip_markdown_links_from_code(line: str) -> str:
     return MARKDOWN_LINK_RE.sub(r"\1", line)
+
+
+def promote_markdown_links_inside_code_spans(text: str) -> str:
+    lines: list[str] = []
+    in_fence = False
+    for line in text.splitlines():
+        if FENCE_RE.match(line):
+            in_fence = not in_fence
+            lines.append(line)
+            continue
+
+        if in_fence:
+            lines.append(line)
+        else:
+            lines.append(CODE_SPAN_LINK_RE.sub(r"[`\1`](\2)", line))
+    return "\n".join(lines)
 
 
 def promote_field_list_sections(text: str) -> str:
