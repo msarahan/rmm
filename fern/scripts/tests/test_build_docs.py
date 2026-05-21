@@ -42,3 +42,10 @@ def test_fern_docs_do_not_link_to_legacy_api_reference():
 
     assert "docs.rapids.ai/api/rmm" not in page_text
     assert "api_reference" in docs_yml.read_text(encoding="utf-8")
+
+
+def test_home_page_links_native_api_entry_points():
+    home = (FERN_ROOT / "pages" / "index.md").read_text(encoding="utf-8")
+
+    assert "[C++ API](./api_reference/cpp/index.md)" in home
+    assert "[Python API](./api_reference/python/index.md)" in home
