@@ -138,6 +138,10 @@ def test_normalize_markdown_repairs_collapsed_cpp_examples():
         "cuda_stream_view{}; "
         "// Copies `buff` into a new buffer. cuda_stream_view "
         "[stream](#classrmm_1_1device__buffer_1stream) = cuda_stream_view{};\n"
+        "// Moves memory. Deallocates previously allocated // to_buff memory "
+        "on `to_buff.stream()`. "
+        "[device_buffer](#classrmm_1_1device__buffer) "
+        "to_buff(std::move(from_buff));\n"
         "```\n"
     )
 
@@ -153,6 +157,9 @@ def test_normalize_markdown_repairs_collapsed_cpp_examples():
         "cuda_stream_view stream = cuda_stream_view{};\n"
         "// Copies `buff` into a new buffer.\n"
         "cuda_stream_view stream = cuda_stream_view{};\n"
+        "// Moves memory. Deallocates previously allocated\n"
+        "// to_buff memory on `to_buff.stream()`.\n"
+        "device_buffer to_buff(std::move(from_buff));\n"
         "```"
     ) in output
     assert "[device_buffer](#classrmm_1_1device__buffer) buff" not in output

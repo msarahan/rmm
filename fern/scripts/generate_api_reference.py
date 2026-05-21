@@ -286,12 +286,16 @@ def split_cpp_comment_from_code(line: str) -> list[str]:
 
 
 def looks_like_cpp_code_start(text: str, *, in_comment: bool) -> bool:
-    if in_comment and not CPP_STATEMENT_TERMINATOR_RE.search(text):
-        return False
-    if CPP_LINK_START_RE.match(text):
-        return True
-    if CPP_KEYWORD_START_RE.match(text):
-        return True
+    link_match = CPP_LINK_START_RE.match(text)
+    if link_match:
+        return not in_comment or statement_starts_before_sentence(
+            text, link_match.end()
+        )
+    keyword_match = CPP_KEYWORD_START_RE.match(text)
+    if keyword_match:
+        return not in_comment or statement_starts_before_sentence(
+            text, keyword_match.end()
+        )
 
     match = CPP_SYMBOL_START_RE.match(text)
     if not match:
@@ -300,7 +304,28 @@ def looks_like_cpp_code_start(text: str, *, in_comment: bool) -> bool:
         return True
 
     symbol = match.group("symbol")
-    return any(marker in symbol for marker in ("_", "::", ".", "<"))
+    if not any(marker in symbol for marker in ("_", "::", ".", "<")):
+        return False
+    return statement_starts_before_sentence(text, match.end())
+
+
+def statement_starts_before_sentence(text: str, start: int) -> bool:
+    remainder = text[start:]
+    terminators = [
+        position
+        for position in (
+            remainder.find(";"),
+            remainder.find("{"),
+        )
+        if position >= 0
+    ]
+    if not terminators:
+        return False
+
+    sentence_end = remainder.find(". ")
+    if sentence_end < 0:
+        return True
+    return min(terminators) < sentence_end
 
 
 def split_cpp_statements(line: str) -> list[str]:
