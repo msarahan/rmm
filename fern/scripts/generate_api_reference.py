@@ -29,6 +29,17 @@ GENERATED_NOTICE = (
     "Do not edit directly. */}\n\n"
 )
 API_SOURCE_DIRS = ("cpp", "python")
+CPP_MEMBER_GROUP_HEADINGS = {
+    "### Friends",
+    "### Protected Attributes",
+    "### Protected Functions",
+    "### Protected Static Attributes",
+    "### Public Attributes",
+    "### Public Functions",
+    "### Public Static Attributes",
+    "### Public Types",
+    "### Static Public Attributes",
+}
 HTML_COMMENT_RE = re.compile(r"<!--\s*(.*?)\s*-->", re.DOTALL)
 HTML_ANCHOR_RE = re.compile(r'^\s*<a\s+(?:id|name)="[^"]+"></a>\s*$')
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
@@ -198,6 +209,8 @@ def normalize_markdown(
     text = sanitize_mdx(text)
     if source_dir_name == "python":
         text = indent_python_member_bodies(text)
+    elif source_dir_name == "cpp":
+        text = indent_cpp_member_bodies(text)
     return f"{GENERATED_NOTICE}{text}\n"
 
 
@@ -447,13 +460,13 @@ def indent_python_member_bodies(text: str) -> str:
 
     for line in text.splitlines():
         if line.startswith("#### "):
-            flush_python_member_body(lines, member_body)
+            flush_api_member_body(lines, member_body)
             member_body = []
             lines.append(line)
             continue
 
         if member_body is not None and is_python_member_boundary(line):
-            flush_python_member_body(lines, member_body)
+            flush_api_member_body(lines, member_body)
             member_body = None
             lines.append(line)
             continue
@@ -463,7 +476,7 @@ def indent_python_member_bodies(text: str) -> str:
         else:
             lines.append(line)
 
-    flush_python_member_body(lines, member_body)
+    flush_api_member_body(lines, member_body)
     return "\n".join(lines)
 
 
@@ -471,7 +484,55 @@ def is_python_member_boundary(line: str) -> bool:
     return line.startswith("{/*") or HTML_ANCHOR_RE.match(line) is not None
 
 
-def flush_python_member_body(
+def indent_cpp_member_bodies(text: str) -> str:
+    lines: list[str] = []
+    member_body: list[str] | None = None
+
+    for line in text.splitlines():
+        if is_cpp_member_group_heading(line):
+            flush_api_member_body(lines, member_body)
+            member_body = None
+            lines.append(line)
+            continue
+
+        if line.startswith("### ") and previous_nonblank_is_anchor(lines):
+            flush_api_member_body(lines, member_body)
+            member_body = []
+            lines.append(line)
+            continue
+
+        if member_body is not None and is_cpp_member_boundary(line):
+            flush_api_member_body(lines, member_body)
+            member_body = None
+            lines.append(line)
+            continue
+
+        if member_body is not None:
+            member_body.append(line)
+        else:
+            lines.append(line)
+
+    flush_api_member_body(lines, member_body)
+    return "\n".join(lines)
+
+
+def is_cpp_member_group_heading(line: str) -> bool:
+    return line in CPP_MEMBER_GROUP_HEADINGS
+
+
+def is_cpp_member_boundary(line: str) -> bool:
+    return line.startswith("{/*") or HTML_ANCHOR_RE.match(line) is not None
+
+
+def previous_nonblank_is_anchor(lines: list[str]) -> bool:
+    for line in reversed(lines):
+        if not line.strip():
+            continue
+        return HTML_ANCHOR_RE.match(line) is not None
+    return False
+
+
+def flush_api_member_body(
     lines: list[str], member_body: list[str] | None
 ) -> None:
     if member_body is None:

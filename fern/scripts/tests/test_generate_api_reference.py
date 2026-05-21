@@ -253,6 +253,66 @@ def test_copy_generated_python_api_pages_indents_member_content(tmp_path):
     assert "### *exception* rmm.RMMError\n\nRMM exception details." in output
 
 
+def test_copy_generated_cpp_api_pages_indents_member_content(tmp_path):
+    generator = load_generator()
+    markdown_dir = tmp_path / "sphinx" / "build" / "markdown"
+    output_dir = tmp_path / "fern" / "pages" / "api_reference"
+    (markdown_dir / "cpp").mkdir(parents=True)
+    (markdown_dir / "cpp" / "data_containers.md").write_text(
+        "# Data Containers\n\n"
+        '<a id="rmm::device_buffer"></a>\n\n'
+        "### class device_buffer\n\n"
+        "RAII construct for device memory allocation.\n\n"
+        "### Public Functions\n\n"
+        '<a id="rmm::device_buffer::device_buffer"></a>\n\n'
+        "### explicit device_buffer(std::size_t size)\n\n"
+        "Constructs a new device buffer of `size` uninitialized bytes.\n\n"
+        "#### NOTE\n"
+        "The buffer is aligned.\n\n"
+        "### Throws\n\n"
+        "  *  – If allocation fails.\n\n"
+        "### Parameters\n\n"
+        "  * **size** – Size in bytes to allocate.\n\n"
+        '<a id="rmm::device_buffer::sizeC"></a>\n\n'
+        "### inline std::size_t size() const noexcept\n\n"
+        "### Returns\n\n"
+        "  The size in bytes.\n",
+        encoding="utf-8",
+    )
+
+    generator.copy_generated_markdown_pages(markdown_dir, output_dir)
+
+    output = (output_dir / "cpp" / "data_containers.md").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "### class device_buffer\n\n"
+        "> RAII construct for device memory allocation.\n\n"
+        "### Public Functions"
+    ) in output
+    assert (
+        "### explicit device_buffer(std::size_t size)\n\n"
+        "> Constructs a new device buffer of `size` uninitialized bytes.\n"
+        ">\n"
+        "> #### NOTE\n"
+        "> The buffer is aligned.\n"
+        ">\n"
+        "> ### Throws\n"
+        ">\n"
+        ">   *  – If allocation fails.\n"
+        ">\n"
+        "> ### Parameters\n"
+        ">\n"
+        ">   * **size** – Size in bytes to allocate."
+    ) in output
+    assert (
+        "### inline std::size_t size() const noexcept\n\n"
+        "> ### Returns\n"
+        ">\n"
+        ">   The size in bytes."
+    ) in output
+
+
 def test_copy_generated_markdown_pages_is_idempotent(tmp_path):
     generator = load_generator()
     markdown_dir = tmp_path / "sphinx" / "build" / "markdown"
